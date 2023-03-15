@@ -1,0 +1,169 @@
+1. build docker image using below command 
+Link:https://stackoverflow.com/questions/38986057/how-to-set-image-name-in-dockerfile
+sudo docker build .
+or to have the name of the dockerimage use below cmd
+sudo docker build -t imagename . 
+example
+sudo docker build -t soa-ubuntu2204-image .  
+
+
+sudo docker run -p 8000:80 --privileged=true -it 1cdb6046a012 /bin/bash
+
+Use -P to allow all the ports
+sudo docker run -P --privileged=true -it 1cdb6046a012 /bin/bash
+
+sudo docker-compose build
+
+sudo docker-compose up -d
+
+sudo docker exec --privileged=true -it vsomeip_node_a bash
+
+sudo docker exec --privileged=true -it vsomeip_node_b bash
+
+route add -host 224.224.224.225 dev eth0
+route add -host 224.224.224.225 dev wlan0
+
+export VSOMEIP_CONFIGURATION=/home/work/vsomeip/config/vsomeip-local.json 
+export VSOMEIP_APPLICATION_NAME=notify-sample 
+./notify-sample 
+
+export VSOMEIP_CONFIGURATION=/home/work/vsomeip/config/vsomeip-local.json 
+export VSOMEIP_APPLICATION_NAME=subscribe-sample
+./subscribe-sample
+
+Remove one or more docker images
+sudo docker image rm -f docker_id
+sudo docker image rm 9bcda7060f30 -- remove docker image id
+sudo docker rm -f 9bcda7060f30   --- remove container_id
+-----------------------------------------------------------------------------------------
+export VSOMEIP_CONFIGURATION=/home/work/vsomeip/config/vsomeip-local.json 
+export VSOMEIP_APPLICATION_NAME=client-sample
+./subscribe-sample
+=-------------------------------------------------------------------------------------
+----------------------------login to docker hub & push image---------------------------------------------------
+Link:https://stackoverflow.com/questions/41984399/denied-requested-access-to-the-resource-is-denied-docker
+Docker login details
+username:santhosh
+Password:Qwer@12345
+
+Login to the docker using terminal.
+
+sudo docker login -u santhosh
+list the docker image using below cmd
+sudo docker images
+
+Tag your image build
+
+The image name here is mylocalimage and by default it has tag latest
+and my username is santhosh as registered with docker cloud, and I created a public repository named dockerhub
+
+so my personal repository becomes now santhosh/dockerhub and I want to push my image with tag myfirstimagepush
+
+I tagged as below :
+
+sudo docker tag mylocalimage:latest santhosh/dockerhub:myfirstimagepush
+
+sudo docker image   ---This will list the images 
+Pushed the image to my personal docker repository as below
+
+sudo docker push santhosh/dockerhub:myfirstimagepush
+
+And it successfully pushed to my personal docker repo.
+
+Use pull command to verify the image is able to be pulled
+sudo docker pull santhosh/dockerhub:myfirstimagepush
+
+to logout use below cmd
+sudo docker logout
+--------------------------------------------------------------------------------
+-----------------------Network releated docker commands-----------------------
+Steps to add raspberry pi gpio access in docker image
+https://github.com/Kipjr/docker-rpi4-gpio/blob/master/docker-compose.yml
+
+-----------------------Network releated docker commands-----------------------
+Link:https://github.com/maxking/docker-mailman/issues/85
+1. Listed active networks with below cmd
+sudo docker network list
+
+2. Removed clean_default network with below cmd
+sudo docker network rm clean_default
+
+3. Removed any active container by below cmd
+sudo docker container stop (container id) 
+sudo docker container prune -f
+
+4. Restarted with below cmd
+sudo docker-compose up -d
+--------------------------------------------------------------
+
+--------------------------------------------------------------
+Bug:
+docker: No port specified: :/tcp<empty>.
+Sol:use -p:8000:80
+ex:sudo docker run -p 8000:80 --privileged=true -it 1cdb6046a012 /bin/bash
+Link:https://duckduckgo.com/?q=docker%3A+No+port+specified%3A&t=raspberrypi&ia=web
+-----------------------------------------------------
+Error:
+WARNING: The Docker Engine you're using is running in swarm mode.
+
+Compose does not use swarm mode to deploy services to multiple nodes in a swarm. All containers will be scheduled on the current node.
+
+To deploy your application across the swarm, use `docker stack deploy`.
+
+ERROR: Network vsomeip_node_out_net declared as external, but could not be found. Please create the network manually using `docker network create vsomeip_node_out_net` and try again.
+
+
+Sol:sudo docker swarm leave --force
+Link:https://www.edureka.co/community/101257/running-compose-services-multiple-containers-scheduled-current
+-----------------------------------------------------
+ERROR: Pool overlaps with other one on this address space
+
+Sol: In yml file 
+  NodeA : 
+     build : 
+      context : .
+      dockerfile : Dockerfile
+     image : custom_node
+     restart : always
+     container_name : vsomeip_node_a
+     
+     networks : 
+      node_AB_net : 
+        ipv4_address : 192.168.1.2
+      node_out_net : 
+        ipv4_address : 192.168.29.123
+        
+        The above IP address not belong to same network (192.168.1.2 & 192.168.1.123 will through error so change to 192.168.0.123)
+-----------------------------------------------------
+Error:
+Err:3 https://download.docker.com/linux/ubuntu bullseye Release
+  404  Not Found [IP: 2600:9000:24d8:7a00:3:db06:4200:93a1 443]
+Hit:4 http://mirror.ox.ac.uk/sites/archive.raspbian.org/archive/raspbian bullseye InRelease
+Reading package lists... Done
+E: The repository 'https://download.docker.com/linux/ubuntu bullseye Release' does not have a Release file.
+N: Updating from such a repository can't be done securely, and is therefore disabled by default.
+N: See apt-secure(8) manpage for repository creation and user configuration details.
+
+Sol: use the below cmd to remove the list manually 
+rm /var/lib/apt/lists/*
+Then edit the /etc/apt/sources.list.d/docker.list
+sudo vi apt/sources.list.d/docker.list and remove the https://download.docker.com/linux/ubuntu bullseye Release' from the file 
+do update and upgrade
+sudo apt-get update && sudo apt-get upgrade -y
+
+-----------------------------------------------------
+
+-----------------------------------------------------
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------

@@ -1,0 +1,373 @@
+Offical Weblink:https://kubernetes.io/docs/tutorials/  ---Refer only the offical website for kubernets deployment 
+Link:https://www.youtube.com/watch?v=X9fSMGkjtug
+Installation Guidelink:https://docs.k3s.io/installation
+Imp link:https://dockerlabs.collabnix.com/beginners/install/raspberrypi3/setting-up-k3s-cluster.html
+k3s_command_list_link:https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+------------------------------List of commands--------------------------------------------------------
+sudo kubectl describe pods custom-node
+sudo kubectl get pods -o wide         -- get the list of all pods/docker containers running 
+sudo kubectl get nodes -o wide        -- Get the list of all worker nodes running
+sudo kubectl get deployment -o wide   -- get the list of all deployment/docker containers running 
+sudo kubectl get secrets              -- get the list of all secrets keys
+sudo kubectl apply -f secret-pods.yaml -- run the pod configuration file
+
+Delete commands
+sudo kubectl delete deployment --all              -- delete all deployments 
+sudo kubectl delete deployment deploymentname     -- delete one deployment container
+sudo kubectl delete pods --all                    -- delete all pods/docker containers running 
+sudo kubectl delete pods podname                  -- delete one pods container
+sudo kubectl delete secrets --all                 -- delete all secrets registry
+
+Stop/start/restart kubernets
+sudo systemctl stop k3s
+sudo systemctl start k3s
+sudo systemctl restart k3s
+
+sudo kubectl logs -f podname              -- display all the logs
+kubectl get service --all-namespaces      --------The service IP can be found in the CLUSTER-IP column
+--------------------------------------------------------------------------------------
+
+--------------------Important configuration step on raspberry pi before installing kubernets--------------------------------------------------------------------------------------------
+If the below steps is not done the kubernets will not work properly 
+
+In Raspberry Pi
+1. Add the Below configuration into cmdline.txt file
+ cgroup_memory=1 cgroup_enable=memory
+2. Add the below configuration into config.txt at end of the file
+[all]
+arm_64bit=1 #for configuring raspberry pi as 64bit 
+-----------------------------------------------------------------------------------------------------------
+
+---------------------Important configuration step on Ubuntu/VMware Ubuntu  before installing kubernets-------------------------------------------------------------
+Link:https://forums.rancher.com/t/ubuntu-22-04-lts/38018/14
+On Ubuntu machine or VMWare ubuntu
+1. In /etc/default/grub file add as follow :
+
+GRUB_CMDLINE_LINUX="cgroup_memory=1 cgroup_enable=memory swapaccount=1 systemd.unified_cgroup_hierarchy=0"
+
+2.  /etc/sysctl.conf add as follow:
+net.bridge.bridge-nf-call-iptables=1
+
+sudo update-grub
+sudo reboot
+---------------------------------------------------------------------------------------------------------
+
+-------------------------------Install Kubernetes on master raspberry pi------------------------------------------------------------------------
+1. Uninstall existing K3S using below commands
+/usr/local/bin/k3s-killall.sh --- This step is necessary to stop all the k3s operation before uninstall
+/usr/local/bin/k3s-uninstall.sh
+
+3. Step 3a or 3b used to put iptable in auto / manual mode (This step can be ignored)
+3a. Login to raspberry pi via ssh or putty and to put iptable in manual mode
+sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 
+3b. Login to raspberry pi via ssh or putty and to put iptable in auto mode
+sudo update-alternatives --remove ip6tables /usr/sbin/ip6tables-legacy
+
+4.Use below cmd to Install Kubernetes on master
+curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -s -
+5. Once installation is done run the below cmd in master
+sudo kubectl get nodes
+Response: Raspberrypi ready control-plane, master
+
+5a. on the master install ufw package to allow ports on firewall
+sudo apt-get install ufw nmap 
+sudo ufw allow 6443/tcp
+sudo ufw allow 443/tcp
+To listen to port 6443 use below cmd 
+sudo nc -l 6443
+open a another terminal/window and connect to 6443 port "nc -zv 192.168.1.2 6443" . It should say connected/successful.
+
+5b. on the master node /etc/hosts add the below lines
+192.168.1.2 master
+192.168.1.7 workernode2
+
+6. On master To get master token enter the below cmd
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+7. copy the token obtained from the above command and this command to be used in worker node configuration 
+
+-------------------------------Install Kubernetes agent on worker node raspberry pi-------------------------
+Steps to create worker node 
+Uninstall existing K3S using below commands
+/usr/local/bin/k3s-killall.sh  --- This step is necessary to stop all the k3s operation before uninstall
+/usr/local/bin/k3s-agent-uninstall.sh
+
+1. Go  To get master &  enter the below cmd to get the master token 
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+2. copy the token obtained from the above command and this command to be used in worker node configuration 
+
+3. login to the worker using below command
+sudo su
+4 node On the worker node enter the below command
+curl -sfL http://get.k3s.io | k3S_TOKEN=Yourtoken K3S_URL=https://serverIPaddress:6443 K3S_NODE_NAME=workername sh -
+Note:
+a.  Token is obtained from the master using the command mentioned in step no 6
+b. K3S_URL="https://[your server]:6443" -- The your server is the ip address of the master
+c. The servername is the name of the worker node that you want to mention
+
+Example: 
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.1.6:6443 K3S_TOKEN=K108024234045bd8733881cc0dad414f8517bfa725ec5f8069773d4eadd0906ceb1::server:5e4a9ec53b27ee296d0a39c55e05b4f4 K3S_NODE_NAME=rasp2 sh -
+
+5.Once installation is done run the below cmd in master
+sudo kubectl get nodes
+ Response: You will the worker node will be running
+---------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------
+
+--------------------------------login to docker hub & push image---------------------------------------------------
+Link:https://stackoverflow.com/questions/41984399/denied-requested-access-to-the-resource-is-denied-docker
+Docker login details
+username:santhosh
+Password:Qwer@12345
+
+Login to the docker using terminal.
+
+sudo docker login -u santhosh
+list the docker image using below cmd
+sudo docker images
+
+Tag your image build
+
+The image name here is mylocalimage and by default it has tag latest
+and my username is santhosh as registered with docker cloud, and I created a public repository named dockerhub
+
+so my personal repository becomes now santhosh/dockerhub and I want to push my image with tag myfirstimagepush
+
+I tagged as below :
+
+sudo docker tag mylocalimage:latest santhosh/dockerhub:myfirstimagepush
+
+sudo docker image   ---This will list the images 
+Pushed the image to my personal docker repository as below
+
+sudo docker push santhosh/dockerhub:myfirstimagepush
+
+And it successfully pushed to my personal docker repo.
+
+Use pull command to verify the image is able to be pulled
+sudo docker pull santhosh/dockerhub:myfirstimagepush
+
+to logout use below cmd
+sudo docker logout
+---------------------------------------------------------------------------------------------------------------
+
+---------------Command Line Trace/Log--Push docker image to docker hub----------------------------
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker images
+REPOSITORY             TAG       IMAGE ID       CREATED          SIZE
+custom-node            latest    c9a970f687c8   57 seconds ago   1.41GB
+soa-ubuntu2204-image   latest    644635408023   7 minutes ago    1.41GB
+ubuntu                 22.04     f3a711451e14   7 days ago       55.3MB
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker tag custom-node santhku/private:soa_image
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker images
+REPOSITORY             TAG         IMAGE ID       CREATED         SIZE
+custom-node            latest      c9a970f687c8   2 minutes ago   1.41GB
+santhku/private        soa_image   c9a970f687c8   2 minutes ago   1.41GB
+soa-ubuntu2204-image   latest      644635408023   8 minutes ago   1.41GB
+ubuntu                 22.04       f3a711451e14   7 days ago      55.3MB
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker push santhku/private:soa_image
+The push refers to repository [docker.io/santhku/private]
+f5f8d35e0915: Layer already exists 
+2ae29e09fe7c: Pushed 
+96380d534c6a: Pushed 
+c3f807d35448: Pushing [=================================================> ]    987MB/1.002GB
+c4399e23f590: Layer already exists 
+---------------------------------------------------------------------------------------------------------------
+
+------------Kubernetes POD creation On the master node raspberry pi to pull docker image from repo ---------------------------------------
+Link:https://www.youtube.com/watch?v=yChGoLViPTw
+Link:https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+use below for using host network configuration as kubernets cluster assigns dynamic ip
+link:https://stackoverflow.com/questions/59713866/multicast-udp-packets-to-all-kubernetes-pods-on-different-nodes/59717962#59717962   
+\
+1. Create the secret registry using below command
+
+sudo kubectl create secret docker-registry secret-docker --docker-server=docker.io --docker-username=santhku --docker-password=Qwer@12345 --docker-email=santhku@gmail.com
+
+sudo kubectl get secret
+
+2. create the secret-pod.yaml and add the below 
+----------------start-secret-pod.yaml -------------------------
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-soalatest
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  containers:
+  - name: private-reg-container
+    image: docker.io/santhku/private:latest
+    securityContext:
+      privileged: true
+  imagePullSecrets:
+  - name: secret-docker
+----------------End-secret-pod.yaml ------------------------- 
+Note:check alignment if you get error
+3.To apply and run the pod use the below command 
+ sudo kubectl apply -f secret-pods.yaml -- run the pod configuration file
+ 
+4. Use below cmd to  list all pods/docker containers running 
+sudo kubectl get pods -o wide         -- get the list of all pods/docker containers running 
+5. Login to the container using below command
+sudo kubectl exec -it pod_name -c container_name bash
+example:
+sudo kubectl exec -it private-soalatest -c private-reg-container bash
+
+6. Use below cmd to Delete the secret register only if new secret register to configured  
+sudo kubectl delete secret --all   --- Delete the secret register only if new secret register to configured 
+Note: Without secret register the pod will not be created
+---------------------------------------------------------------------------------------------------------------
+ 
+ ---------------------------Deploy the kubernets rancher GUI------------------------------------------------------
+Link:https://www.youtube.com/watch?v=X9fSMGkjtug
+1. To enable the GUI
+sudo mkdir /etc/rancher/rke2
+
+2. cd /etc/rancher/rke2
+sudo vi /etc/rancher/rke2/config.yaml
+---------start-config.yaml----------------
+token: mylittlepony
+tls-san:
+  - serveripaddress
+---------End-config.yaml----------------
+
+3. verify the configuration located at /etc/rancher/rke2/config.yaml using below cmd
+cat /etc/rancher/rke2/config.yaml
+
+4. install the rancher for GUI
+curl -sfL https://get.rancher.io | sh -
+  
+5. To see the version/help Enter the below cmd
+rancherd --help
+
+6. To start the rancher GUI
+sudo systemctl start rancherd-server.service
+
+sudo systemctl stop rancherd-server.service
+
+7. To check the log
+sudo journalctl -eu rancherd-server -f
+
+8. To reset the password
+rancherd reset-admin
+ 
+---------------------Commands----------------------------------------------------
+Install K3S command On the server/Manager node 
+curl -sfL https://get.k3s.io | sh - 
+
+On the server/Manager node get the token using the below cmd
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+
+sudo kubectl apply -f secrets-pod.yaml
+
+
+on the master install ufw package to allow ports on firewall
+sudo apt-get install ufw nmap 
+sudo ufw allow 6443/tcp
+sudo ufw allow 443/tcp
+To listen to port 6443 use below cmd 
+sudo nc -l 6443
+open a another terminal/window and connect to 6443 port "nc -zv 192.168.1.2 6443" . It should say connected/successful.
+
+
+on the master node /etc/hosts add the below lines
+192.168.1.2 master
+192.168.1.7 workernode2
+
+login as superuser in the worker node using below command
+sudo su
+add the master/server node token on worker node (login as superuser before firing the below command)
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.1.15:6443 K3S_TOKEN=K1002c38fef769d93b3e3a17fd9f2ab59ee497d4f5d5e8c18ab9589bbf592ea67f7::server:6da409a9ef96b2a7af368bf3ba4d28cd K3S_NODE_NAME=workernode2 sh -
+
+
+Uninstall K3S using below commands
+/usr/local/bin/k3s-killall.sh
+/usr/local/bin/k3s-uninstall.sh
+
+
+-----------GUI----------------------------------------
+To enable the GUI
+sudo mkdir /etc/rancher/rke2
+cd /etc/rancher/rke2
+sudo vi /etc/rancher/rke2/config.yaml
+--------------------config.yaml-----------------------
+token: mylittlepony
+tls-san:
+  - serveripaddress
+
+---------------------rancher for GUI---------------------------------
+cat /etc/rancher/rke2/config.yaml
+install the rancher for GUI
+curl -sfL https://get.rancher.io | sh -
+  
+To see the version/help Enter the below cmd
+rancherd --help
+
+To start the rancher GUI
+sudo systemctl start rancherd-server.service
+
+sudo systemctl stop rancherd-server.service
+
+To check the log
+sudo journalctl -eu rancherd-server -f
+
+To reset the password
+rancherd reset-admin
+
+----------------------Kubernetes pull docker image from repo-----------------------
+Link:https://www.youtube.com/watch?v=yChGoLViPTw
+
+refer to docker-registry  in kubernetes offical website https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+
+sudo kubectl create secret docker-registry secret-docker --docker-server=docker.io --docker-username=santhku --docker-password=Qwer@12345 --docker-email=santhku@gmail.com
+
+sudo kubectl get secret
+
+sudo kubectl delete secret --all
+-----------------------------------logs-kubernet commands logs-------------------------------
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker tag custom-node santhku/private:latest
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker images
+REPOSITORY        TAG       IMAGE ID       CREATED          SIZE
+custom-node       latest    6afdc98ad264   5 minutes ago    1.41GB
+santhku/private   latest    6afdc98ad264   5 minutes ago    1.41GB
+<none>            <none>    b12ac0912473   20 minutes ago   1.41GB
+ubuntu            22.04     f3a711451e14   7 days ago       55.3MB
+santhosh@raspberrypi:~/MyDockerImages $ sudo docker push santhku/private:latest
+
+santhosh@raspberrypi:~/MyDockerImages $ sudo kubectl create deploy sam --image=santhku/private:latest
+santhosh@raspberrypi:~/MyDockerImages $ sudo kubectl get pods
+NAME                   READY   STATUS             RESTARTS       AGE
+private-soa            0/1     CrashLoopBackOff   8 (3m8s ago)   68m
+custom-node            0/1     CrashLoopBackOff   7 (3m2s ago)   61m
+sam-646bb7f4db-l9m8n   0/1     CrashLoopBackOff   1 (6s ago)     13s
+santhosh@raspberrypi:~/MyDockerImages $ sudo kubectl delete pods private-soa
+pod "private-soa" deleted
+santhosh@raspberrypi:~/MyDockerImages $ sudo kubectl delete pods custom-node
+pod "custom-node" deleted
+santhosh@raspberrypi:~/MyDockerImages $ sudo kubectl describe sam-646bb7f4db-l9m8n
+error: the server doesn't have a resource type "sam-646bb7f4db-l9m8n"
+santhosh@raspberrypi:~/MyDockerImages $ 
+
+
+-----------------------------------------Issues---------------------------------------
+Rancher doesn't work with arm32v7
+Error: unsupported architecture armv71
+Error: unsupported architecture aarch64
+
+Sol: Link-https://github.com/rancher/rancher/issues/23397
+---------------------------------------------------------
+ERROR:server 127.0.0.1:6443 was refused - did you specify the right host or port?
+Sol:
+1. Install nmap " sudo apt-get install nmap "
+
+2. listen to port 6443 "nc -l 6443"
+
+3. open a another terminal/window and connect to 6443 port "nc -zv 192.168.1.2 6443" . It should say connected.
+
+Link:https://stackoverflow.com/questions/70571312/port-6443-connection-refused-when-setting-up-kubernetes#:~:text=can%20try%20following%20%3A-,1.,port%20%22nc%20%2Dzv%20192.168.
+
+----------------------------------------------------------------------------------------
